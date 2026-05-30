@@ -1,0 +1,37 @@
+[project]
+name = "cin-distributed"
+version = "0.1.0"
+description = "Bootstrap Router — rule-based distributed inference routing across local nodes and cloud."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+dependencies = [
+    "PyYAML>=6.0,<7.0",
+    "requests>=2.28,<3.0",
+]
+
+[project.optional-dependencies]
+# Only needed to run the Telegram sub-agent (sub-agent-interface.py --serve).
+telegram = ["python-telegram-bot>=21.0,<22.0"]
+dev = ["ruff>=0.6,<1.0", "pytest>=8.0"]
+
+# The project ships as a set of flat, hyphen-named scripts rather than an
+# installable package, so no [build-system] / packaging table is declared.
+# This file exists to centralise tool configuration and dependency metadata.
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+# Keep to ruff's default rule set (pyflakes F + pycodestyle E) so this lint
+# config does not trigger a mass reformat of the project's existing,
+# intentionally wide data tables and ANSI-art blocks.
+# E501 (line length) is intentionally not enforced for the same reason.
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+# Scope test discovery to the pure-logic unit tests added in tests/.
+# This keeps CI green without GPUs, model weights, Ollama, or network access.
+testpaths = ["tests"]
+addopts = "-q"

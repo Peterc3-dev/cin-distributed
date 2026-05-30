@@ -1,0 +1,11 @@
+# Runtime dependencies for the Bootstrap Router.
+#
+# Both are imported lazily (only when loading the YAML config or making an
+# Ollama/cloud HTTP call), so the pure routing/validation logic and the test
+# suite can run without them installed.
+PyYAML>=6.0,<7.0
+requests>=2.28,<3.0
+
+# Optional: only needed to actually run the Telegram sub-agent
+# (sub-agent-interface.py --serve). The rest of the project works without it.
+# python-telegram-bot>=21.0,<22.0

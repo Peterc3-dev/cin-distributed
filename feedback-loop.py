@@ -14,8 +14,6 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 
-import yaml
-
 SCRIPT_DIR = Path(__file__).parent.resolve()
 CONFIG_PATH = SCRIPT_DIR / "routing-config.yaml"
 
@@ -26,6 +24,8 @@ R = "\033[0m"
 
 
 def load_config() -> dict:
+    import yaml
+
     with open(CONFIG_PATH) as f:
         return yaml.safe_load(f)
 
