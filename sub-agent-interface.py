@@ -29,26 +29,30 @@
  and latency. Reply-chains maintain routing affinity.
 """
 
-import os
 import sys
-import json
 import asyncio
 import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 
 # ─── Imports (Telegram + Router) ──────────────────────────────
 # In production: pip install python-telegram-bot
 # For now, this is the interface contract.
 
-# Bootstrap Router integration
-ROUTER_DIR = Path(__file__).parent.parent / "bootstrap-router"
+# Bootstrap Router integration.
+# router.py lives alongside this file, so add this script's own
+# directory to sys.path. (Historically the router lived in a sibling
+# "bootstrap-router/" directory; fall back to that if present.)
+ROUTER_DIR = Path(__file__).parent.resolve()
+_LEGACY_ROUTER_DIR = ROUTER_DIR.parent / "bootstrap-router"
 sys.path.insert(0, str(ROUTER_DIR))
+if _LEGACY_ROUTER_DIR.is_dir():
+    sys.path.insert(0, str(_LEGACY_ROUTER_DIR))
 
 try:
-    from router import BootstrapRouter, load_config
+    from router import BootstrapRouter
     ROUTER_AVAILABLE = True
 except ImportError:
     ROUTER_AVAILABLE = False
@@ -402,12 +406,17 @@ class SubAgentInterface:
         fb_type = parsed["feedback_type"]
         last_tier = ctx.last_tier or "simple"
 
-        # Integrate with feedback-loop.py
+        # Integrate with feedback-loop.py.
+        # The filename contains a hyphen, so it cannot be imported by name
+        # (import_module("feedback-loop") is a SyntaxError-equivalent at the
+        # module-name level). Load it by file path instead.
         try:
-            sys.path.insert(0, str(ROUTER_DIR))
-            from importlib import import_module
-            # Direct integration
-            fb_mod = import_module("feedback-loop")
+            import importlib.util
+
+            fb_path = ROUTER_DIR / "feedback-loop.py"
+            spec = importlib.util.spec_from_file_location("feedback_loop", fb_path)
+            fb_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(fb_mod)
             loop = fb_mod.FeedbackLoop()
             result = loop.apply_feedback(fb_type, last_tier, parsed["query"])
 

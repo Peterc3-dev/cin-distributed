@@ -12,9 +12,7 @@ import json
 import argparse
 from pathlib import Path
 from datetime import datetime, timedelta
-from collections import Counter, defaultdict
-
-import yaml
+from collections import Counter
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
 CONFIG_PATH = SCRIPT_DIR / "routing-config.yaml"
@@ -26,6 +24,10 @@ R = "\033[0m"
 
 
 def load_config() -> dict:
+    # Imported lazily so the pure log-parsing/report helpers in this module
+    # can be imported and used without PyYAML installed.
+    import yaml
+
     with open(CONFIG_PATH) as f:
         return yaml.safe_load(f)
 

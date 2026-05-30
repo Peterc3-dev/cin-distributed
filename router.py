@@ -13,13 +13,9 @@ import re
 import json
 import time
 import argparse
-import subprocess
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Tuple
-
-import yaml
-import requests
 
 # ─── Constants ───────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).parent.resolve()
@@ -33,6 +29,10 @@ R = "\033[0m"
 
 
 def load_config() -> dict:
+    # Imported lazily so that the pure complexity-analysis logic in this
+    # module (ComplexityAnalyzer) can be imported without PyYAML installed.
+    import yaml
+
     with open(CONFIG_PATH) as f:
         return yaml.safe_load(f)
 
@@ -170,6 +170,8 @@ class NodeConnector:
         """Ping Ollama endpoint."""
         if node_key == "cloud":
             return True  # cloud assumed available
+        import requests
+
         try:
             url = self._ollama_url(node_key)
             r = requests.get(f"{url}/api/tags", timeout=5)
@@ -192,6 +194,8 @@ class NodeConnector:
         """
         if node_key == "cloud":
             return self._cloud_generate(query)
+
+        import requests
 
         url = self._ollama_url(node_key)
         model = model or self.get_default_model(node_key)

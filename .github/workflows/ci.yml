@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install lint/test tools
+        # Only the lightweight tooling and the (lazy) runtime deps are
+        # installed. No GPU, model weights, Ollama, or Telegram credentials
+        # are required: the test suite covers pure routing/validation logic.
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff pytest pyyaml requests
+
+      - name: Ruff (lint)
+        run: ruff check .
+
+      - name: Pytest (pure-logic unit tests)
+        # Scoped to tests/ via pyproject's testpaths; these tests never touch
+        # the network, GPUs, or model weights.
+        run: pytest -q tests/

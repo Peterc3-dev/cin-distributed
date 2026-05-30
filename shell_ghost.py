@@ -28,8 +28,6 @@ from datetime import datetime
 from typing import Optional, Tuple, Dict, List, Any
 from dataclasses import dataclass, asdict
 
-import yaml
-
 # ─── Display ──────────────────────────────────────────────────
 G = "\033[38;2;51;255;102m"
 DIM = "\033[2m"
@@ -228,7 +226,12 @@ DEFAULT_CONFIG = {
 
 
 def load_ghost_config() -> dict:
+    # PyYAML is imported lazily so the pure validation/translation logic in
+    # this module can be imported and exercised without PyYAML installed.
+    # When no config file exists we fall back to DEFAULT_CONFIG (no yaml needed).
     if CONFIG_PATH.exists():
+        import yaml
+
         with open(CONFIG_PATH) as f:
             return yaml.safe_load(f)
     return DEFAULT_CONFIG
@@ -237,6 +240,8 @@ def load_ghost_config() -> dict:
 def save_default_config():
     """Write default config to disk if it doesn't exist."""
     if not CONFIG_PATH.exists():
+        import yaml
+
         with open(CONFIG_PATH, "w") as f:
             yaml.dump(DEFAULT_CONFIG, f, default_flow_style=False,
                       sort_keys=False, width=120)
