@@ -238,3 +238,58 @@ def test_quoted_argument_survives_shlex_split(monkeypatch):
     calls.clear()
     _executor().execute("echo 'hello world' two")
     assert calls[0][0] == ["echo", "hello world", "two"]
+
+
+# ── ShellExecutor argv expansion (tilde, allowlisted vars, globs) ──
+
+def test_tilde_expands_to_home_in_argv(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    calls = _capture_run(monkeypatch)
+    _executor().execute("ls -lah ~")
+    assert calls[0][0] == ["ls", "-lah", str(tmp_path)]
+    assert calls[0][0][2] == str(tmp_path)
+    calls.clear()
+    _executor().execute("ls ~/Downloads")
+    assert calls[0][0] == ["ls", str(tmp_path / "Downloads")]
+
+
+def test_glob_with_matches_expands(monkeypatch, tmp_path):
+    (tmp_path / "a.txt").write_text("")
+    (tmp_path / "b.txt").write_text("")
+    (tmp_path / ".hidden.txt").write_text("")
+    monkeypatch.chdir(tmp_path)
+    calls = _capture_run(monkeypatch)
+    _executor().execute("du -sh *.txt")
+    assert calls[0][0] == ["du", "-sh", "a.txt", "b.txt"]
+
+
+def test_glob_without_match_stays_literal(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    calls = _capture_run(monkeypatch)
+    _executor().execute("ls *.nomatch")
+    assert calls[0][0] == ["ls", "*.nomatch"]
+
+
+def test_quoted_glob_and_tilde_not_expanded(monkeypatch, tmp_path):
+    (tmp_path / "my-notes.txt").write_text("")
+    monkeypatch.chdir(tmp_path)
+    calls = _capture_run(monkeypatch)
+    _executor().execute("find . -name \"*notes*\" '~'")
+    assert calls[0][0] == ["find", ".", "-name", "*notes*", "~"]
+
+
+def test_only_allowlisted_env_vars_expand(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("SECRET_TOKEN", "s3cret")
+    calls = _capture_run(monkeypatch)
+    _executor().execute("echo $HOME ${HOME}/x $SECRET_TOKEN")
+    assert calls[0][0] == [
+        "echo", str(tmp_path), f"{tmp_path}/x", "$SECRET_TOKEN",
+    ]
+
+
+def test_shell_true_command_string_unchanged(monkeypatch):
+    calls = _capture_run(monkeypatch)
+    _executor().execute("ls ~ *.py $HOME", shell=True)
+    assert calls[0][0] == "ls ~ *.py $HOME"
+    assert calls[0][1]["shell"] is True

@@ -20,6 +20,7 @@
 import os
 import re
 import json
+import glob
 import shlex
 import subprocess
 import argparse
@@ -479,19 +480,104 @@ class IntentTranslator:
 # ═══════════════════════════════════════════════════════════════
 
 class ShellExecutor:
-    """Executes validated commands with output capture."""
+    """Executes validated commands with output capture.
+
+    Commands run as an argv list with shell=False by default (see
+    execute()). Because no shell is involved, ShellExecutor performs a
+    small, bash-like subset of word expansion itself on every argument
+    that contains no quotes or backslash escapes:
+
+    * Tilde: a leading ``~`` or ``~user`` is expanded with
+      os.path.expanduser (``ls -lah ~`` lists the home directory).
+    * Variables: only ``$VAR`` / ``${VAR}`` for names in
+      EXPANDABLE_ENV_VARS (HOME, USER, PWD) are substituted; any other
+      variable reference is left as literal text.
+    * Globs: arguments containing ``*``, ``?`` or ``[`` are expanded with
+      glob.glob (sorted, hidden files excluded as in bash). When nothing
+      matches, the argument is passed through literally (nullglob off).
+
+    Quoted or escaped arguments (e.g. ``find . -name "*notes*"``) are
+    never expanded, matching shell quoting semantics. The shell=True path
+    passes the command string to /bin/sh unchanged.
+    """
+
+    EXPANDABLE_ENV_VARS = ("HOME", "USER", "PWD")
+    _VAR_RE = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
 
     def __init__(self, config: dict):
         ghost = config.get("ghost", config)
         self.timeout = ghost.get("timeout_sec", 30)
         self.max_lines = ghost.get("max_output_lines", 100)
 
+    @staticmethod
+    def _split_words(command: str) -> List[Tuple[str, bool]]:
+        """POSIX-split like shlex.split, also reporting whether each word
+        contained any quoting or escaping (such words are not expanded)."""
+        shlex.split(command)  # raise ValueError on malformed input
+        lex = shlex.shlex(command, posix=True)
+        lex.whitespace_split = True
+        lex.commenters = ""
+        words: List[Tuple[str, bool]] = []
+        # Scan the raw string in parallel to detect quoting per word.
+        i, n = 0, len(command)
+        for word in lex:
+            while i < n and command[i].isspace():
+                i += 1
+            quoted = False
+            state = None
+            while i < n and (state is not None or not command[i].isspace()):
+                c = command[i]
+                if state is None:
+                    if c in "'\"":
+                        state, quoted = c, True
+                    elif c == "\\":
+                        quoted = True
+                        i += 1
+                elif state == "'" and c == "'":
+                    state = None
+                elif state == '"':
+                    if c == "\\":
+                        i += 1
+                    elif c == '"':
+                        state = None
+                i += 1
+            words.append((word, quoted))
+        return words
+
+    @classmethod
+    def _expand_word(cls, word: str) -> List[str]:
+        """Apply tilde, allowlisted-variable and glob expansion to one word."""
+        word = os.path.expanduser(word)
+
+        def _sub(m):
+            name = m.group(1) or m.group(2)
+            if name in cls.EXPANDABLE_ENV_VARS and name in os.environ:
+                return os.environ[name]
+            return m.group(0)
+
+        word = cls._VAR_RE.sub(_sub, word)
+        if glob.has_magic(word):
+            matches = sorted(glob.glob(word))
+            if matches:
+                return matches
+        return [word]
+
+    @classmethod
+    def build_argv(cls, command: str) -> List[str]:
+        """Split a command into argv and apply ShellExecutor's expansion."""
+        argv: List[str] = []
+        for word, quoted in cls._split_words(command):
+            argv.extend([word] if quoted else cls._expand_word(word))
+        return argv
+
     def execute(self, command: str, dry_run: bool = False,
                 shell: bool = False) -> Dict[str, Any]:
         """
         Execute a command and capture output.
         By default the string is split with shlex and run as an argv list
-        with shell=False, so no shell interprets it. shell=True is reserved
+        with shell=False, so no shell interprets it; tilde, allowlisted
+        variable and glob expansion are applied by build_argv() (see the
+        class docstring). shell=True is reserved
         for templates explicitly marked shell-required.
         Returns result dict with stdout, stderr, returncode, duration.
         """
@@ -508,7 +594,7 @@ class ShellExecutor:
 
         start = datetime.now()
         try:
-            run_args = command if shell else shlex.split(command)
+            run_args = command if shell else self.build_argv(command)
             result = subprocess.run(
                 run_args,
                 shell=shell,
