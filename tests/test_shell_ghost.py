@@ -176,3 +176,65 @@ def test_background_and_newline_chaining_blocked(validator, cmd):
 def test_translate_logs_does_not_split_word_into_unit(text, expected):
     # "show logs" used to become "journalctl -u s" by backtracking "logs?".
     assert sg.IntentTranslator.translate(text) == expected
+
+
+# ── ShellExecutor argv hardening ──
+
+class _FakeCompleted:
+    stdout = "ok\n"
+    stderr = ""
+    returncode = 0
+
+
+def _capture_run(monkeypatch):
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append((args, kwargs))
+        return _FakeCompleted()
+
+    monkeypatch.setattr(sg.subprocess, "run", fake_run)
+    return calls
+
+
+def _executor():
+    return sg.ShellExecutor({"ghost": {}})
+
+
+def test_translated_command_runs_as_argv_without_shell(monkeypatch):
+    calls = _capture_run(monkeypatch)
+    cmd = sg.IntentTranslator.translate("show disk space")
+    _executor().execute(cmd)
+    args, kwargs = calls[0]
+    assert isinstance(args, list)
+    assert args == ["df", "-h"]
+    assert kwargs["shell"] is False
+
+
+def test_shell_required_template_passes_string_with_shell(monkeypatch):
+    calls = _capture_run(monkeypatch)
+    monkeypatch.setattr(
+        sg.IntentTranslator, "PATTERNS",
+        [(r"top\s+procs", "ps aux | head -5", {"shell": True})],
+    )
+    cmd, needs_shell = sg.IntentTranslator.translate_entry("top procs")
+    assert needs_shell is True
+    _executor().execute(cmd, shell=needs_shell)
+    args, kwargs = calls[0]
+    assert args == "ps aux | head -5"
+    assert kwargs["shell"] is True
+
+
+def test_default_templates_need_no_shell():
+    for entry in sg.IntentTranslator.PATTERNS:
+        assert len(entry) < 3 or not entry[2].get("shell")
+
+
+def test_quoted_argument_survives_shlex_split(monkeypatch):
+    calls = _capture_run(monkeypatch)
+    cmd = sg.IntentTranslator.translate("find notes files")
+    _executor().execute(cmd)
+    assert calls[0][0] == ["find", ".", "-name", "*notes*"]
+    calls.clear()
+    _executor().execute("echo 'hello world' two")
+    assert calls[0][0] == ["echo", "hello world", "two"]

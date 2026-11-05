@@ -384,9 +384,14 @@ class IntentTranslator:
     ``{N|lower}`` (capture N, lowercased). Use ``|lower`` for verb/action
     captures that the target command expects in lowercase; keep plain
     ``{N}`` for paths, units, packages and model names.
+
+    An entry may carry an optional third element, a dict of flags.
+    ``{"shell": True}`` marks a template whose output genuinely needs a shell
+    feature (pipe, redirect); only those run with shell=True. Every other
+    template is a single argv command. None of the current templates need it.
     """
 
-    PATTERNS: List[Tuple[str, str]] = [
+    PATTERNS: List[Tuple[Any, ...]] = [
         # Package management
         (r"update\s*(all\s*)?(packages|system)", "sudo pacman -Syu"),
         (r"install\s+(\S+)", "sudo pacman -S {0}"),
@@ -442,9 +447,17 @@ class IntentTranslator:
         Attempt to translate natural language to a shell command.
         Returns None if no pattern matches.
         """
+        result = cls.translate_entry(natural_text)
+        return result[0] if result else None
+
+    @classmethod
+    def translate_entry(cls, natural_text: str) -> Optional[Tuple[str, bool]]:
+        """Like translate(), but returns (command, shell_required)."""
         text = natural_text.strip()
 
-        for pattern, template in cls.PATTERNS:
+        for entry in cls.PATTERNS:
+            pattern, template = entry[0], entry[1]
+            flags = entry[2] if len(entry) > 2 else {}
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 groups = match.groups()
@@ -456,7 +469,7 @@ class IntentTranslator:
                         cmd = cmd.replace(f"{{{i}}}", value)
                 # Clean up unreplaced placeholders
                 cmd = re.sub(r'\{[0-9]+(?:\|lower)?\}', '', cmd).strip()
-                return cmd
+                return cmd, bool(flags.get("shell", False))
 
         return None
 
@@ -473,9 +486,13 @@ class ShellExecutor:
         self.timeout = ghost.get("timeout_sec", 30)
         self.max_lines = ghost.get("max_output_lines", 100)
 
-    def execute(self, command: str, dry_run: bool = False) -> Dict[str, Any]:
+    def execute(self, command: str, dry_run: bool = False,
+                shell: bool = False) -> Dict[str, Any]:
         """
-        Execute a shell command and capture output.
+        Execute a command and capture output.
+        By default the string is split with shlex and run as an argv list
+        with shell=False, so no shell interprets it. shell=True is reserved
+        for templates explicitly marked shell-required.
         Returns result dict with stdout, stderr, returncode, duration.
         """
         if dry_run:
@@ -491,9 +508,10 @@ class ShellExecutor:
 
         start = datetime.now()
         try:
+            run_args = command if shell else shlex.split(command)
             result = subprocess.run(
-                command,
-                shell=True,
+                run_args,
+                shell=shell,
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
@@ -676,13 +694,14 @@ class ShellGhost:
         """
         raw = self.extract_command(user_input)
         translated = False
+        shell_required = False
 
         # ── Step 1: Translate natural language if needed ──
         # If it doesn't look like a command, try translation
         if not self._looks_like_command(raw):
-            translated_cmd = self.translator.translate(raw)
-            if translated_cmd:
-                raw = translated_cmd
+            entry = self.translator.translate_entry(raw)
+            if entry:
+                raw, shell_required = entry
                 translated = True
             else:
                 return {
@@ -727,7 +746,8 @@ class ShellGhost:
             }
 
         # ── Step 4: Execute ──
-        execution = self.executor.execute(raw, dry_run=dry_run)
+        execution = self.executor.execute(raw, dry_run=dry_run,
+                                          shell=shell_required)
 
         # ── Step 5: Audit ──
         self.auditor.log(validation, execution, user_input=user_input,
