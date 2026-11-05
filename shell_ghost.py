@@ -379,6 +379,11 @@ class IntentTranslator:
     Translates natural language shell requests to commands.
     Rule-based — no LLM needed for common patterns.
     Falls back to the router's LLM if no pattern matches.
+
+    Template placeholders are ``{N}`` (capture N, case preserved) or
+    ``{N|lower}`` (capture N, lowercased). Use ``|lower`` for verb/action
+    captures that the target command expects in lowercase; keep plain
+    ``{N}`` for paths, units, packages and model names.
     """
 
     PATTERNS: List[Tuple[str, str]] = [
@@ -402,7 +407,7 @@ class IntentTranslator:
         (r"(check|show)\s*(network\s+)?connections", "ss -tulpn"),
 
         # Services
-        (r"(restart|start|stop)\s+(\S+)\s*(service)?", "sudo systemctl {0} {1}"),
+        (r"(restart|start|stop)\s+(\S+)\s*(service)?", "sudo systemctl {0|lower} {1}"),
         (r"(check|show|what\s+is)\s+(\S+)\s+service\s*status", "systemctl status {1}"),
         (r"(show|check|list)\s*services", "systemctl list-units --type=service --state=running"),
         (r"(show|check)\s*(the\s+)?logs?\s+(for\s+)?(\S+)", "journalctl -u {3} -n 50 --no-pager"),
@@ -446,9 +451,11 @@ class IntentTranslator:
                 cmd = template
                 for i, g in enumerate(groups):
                     if g is not None:
-                        cmd = cmd.replace(f"{{{i}}}", g.strip())
+                        value = g.strip()
+                        cmd = cmd.replace(f"{{{i}|lower}}", value.lower())
+                        cmd = cmd.replace(f"{{{i}}}", value)
                 # Clean up unreplaced placeholders
-                cmd = re.sub(r'\{[0-9]+\}', '', cmd).strip()
+                cmd = re.sub(r'\{[0-9]+(?:\|lower)?\}', '', cmd).strip()
                 return cmd
 
         return None

@@ -142,6 +142,20 @@ def test_translate_preserves_input_case(text, expected):
     assert sg.IntentTranslator.translate(text) == expected
 
 
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("Restart nginx", "sudo systemctl restart nginx"),
+        ("STOP MyService", "sudo systemctl stop MyService"),
+        ("Install foo", "sudo pacman -S foo"),
+        ("Install Foo", "sudo pacman -S Foo"),
+        ("Ping example.com", "ping -c 4 example.com"),
+    ],
+)
+def test_translate_lowercases_captured_verbs(text, expected):
+    assert sg.IntentTranslator.translate(text) == expected
+
+
 @pytest.mark.parametrize("cmd", [
     "ls & touch /tmp/pwned",
     "ls\ntouch /tmp/pwned",
