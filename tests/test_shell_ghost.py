@@ -140,3 +140,15 @@ def test_translate_running_queries(text, expected):
 )
 def test_translate_preserves_input_case(text, expected):
     assert sg.IntentTranslator.translate(text) == expected
+
+
+@pytest.mark.parametrize("cmd", [
+    "ls & touch /tmp/pwned",
+    "ls\ntouch /tmp/pwned",
+    "ls\r\ntouch /tmp/pwned",
+])
+def test_background_and_newline_chaining_blocked(validator, cmd):
+    # Under shell=True each of these runs a second, unvalidated command.
+    result = validator.validate(cmd)
+    assert not result.allowed
+    assert "chaining" in result.reason.lower()

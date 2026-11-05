@@ -316,14 +316,17 @@ class CommandValidator:
         base_cmd = parts[0]
 
         # ── Pipe/chain detection ──
-        dangerous_operators = ["|", "&&", "||", ";", "`", "$("]
+        # A lone "&" backgrounds the left side and runs the right side, and a
+        # newline starts a second command under shell=True, so both are
+        # treated as chaining operators too ("&" also covers "&&").
+        dangerous_operators = ["|", "&", ";", "`", "$(", "\n", "\r"]
         for op in dangerous_operators:
             if op in raw:
                 return ValidationResult(
                     allowed=False,
                     command=raw,
                     base_cmd=base_cmd,
-                    reason=f"Command chaining operator '{op}' not allowed. "
+                    reason=f"Command chaining operator {op!r} not allowed. "
                            f"Submit each command separately.",
                 )
 
