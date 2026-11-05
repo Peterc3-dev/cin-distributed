@@ -43,12 +43,8 @@ class FeedbackLoop:
         self.db_path = expand_path(self.config["paths"]["feedback_db"])
         self.db = self._load_db()
 
-    def _load_db(self) -> dict:
-        if self.db_path.exists():
-            try:
-                return json.loads(self.db_path.read_text())
-            except (json.JSONDecodeError, KeyError):
-                pass
+    @staticmethod
+    def _default_db() -> dict:
         return {
             "adjustments": {
                 "simple": 0.0,
@@ -62,6 +58,23 @@ class FeedbackLoop:
                 "total_feedback": 0,
             },
         }
+
+    def _load_db(self) -> dict:
+        db = self._default_db()
+        if self.db_path.exists():
+            try:
+                loaded = json.loads(self.db_path.read_text())
+            except (json.JSONDecodeError, OSError):
+                loaded = None
+            # Merge over defaults so a partial or older DB (e.g. one written
+            # with only "adjustments") does not raise KeyError later.
+            if isinstance(loaded, dict):
+                for key in ("adjustments", "stats"):
+                    if isinstance(loaded.get(key), dict):
+                        db[key].update(loaded[key])
+                if isinstance(loaded.get("history"), list):
+                    db["history"] = loaded["history"]
+        return db
 
     def _save_db(self):
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
