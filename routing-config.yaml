@@ -142,12 +142,13 @@ feedback:
 #  PATHS
 # ═══════════════════════════════════════════════════════════════
 
+# ${CIN_WORKSPACE} expands to $CIN_WORKSPACE if set, else ~/.openclaw/workspace
 paths:
-  routing_rules_md: "~/.openclaw/workspace/memory/model-routing.md"
-  routing_log: "~/.openclaw/workspace/reports/routing-decisions.log"
-  daily_report_dir: "~/.openclaw/workspace/reports/"
-  feedback_db: "~/.openclaw/workspace/memory/routing-feedback.json"
-  budget_tracker: "~/.openclaw/workspace/reports/budget.json"
+  routing_rules_md: "${CIN_WORKSPACE}/memory/model-routing.md"
+  routing_log: "${CIN_WORKSPACE}/reports/routing-decisions.log"
+  daily_report_dir: "${CIN_WORKSPACE}/reports/"
+  feedback_db: "${CIN_WORKSPACE}/memory/routing-feedback.json"
+  budget_tracker: "${CIN_WORKSPACE}/reports/budget.json"
 
 # ═══════════════════════════════════════════════════════════════
 #  DISPLAY

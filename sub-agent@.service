@@ -1,0 +1,32 @@
+# Templated unit: the instance name is the Linux user that runs the bot.
+# Install:
+#   sudo cp sub-agent@.service /etc/systemd/system/
+#   sudo systemctl edit sub-agent@<user>   # set CLAW_TELEGRAM_TOKEN (and
+#                                          # CIN_DIR / CIN_WORKSPACE if needed)
+#   sudo systemctl enable --now sub-agent@<user>
+# CIN_DIR defaults to ~/cin-distributed; CIN_WORKSPACE defaults to
+# ~/.openclaw/workspace (see routing-config.yaml).
+
+[Unit]
+Description=OpenClaw Sub-Agent Telegram Interface (%i)
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+Environment=CLAW_TELEGRAM_TOKEN=YOUR_TOKEN_HERE
+Environment=PYTHONUNBUFFERED=1
+# '~' is the home directory of User= (systemd also sets HOME for it).
+WorkingDirectory=~
+ExecStart=/bin/sh -c 'cd "$${CIN_DIR:-$$HOME/cin-distributed}" && exec /usr/bin/python3 sub-agent-interface.py --serve'
+Restart=on-failure
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=claw-sub-agent-%i
+
+[Install]
+WantedBy=multi-user.target

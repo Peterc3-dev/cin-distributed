@@ -29,6 +29,7 @@
  and latency. Reply-chains maintain routing affinity.
 """
 
+import os
 import sys
 import asyncio
 import logging
@@ -272,7 +273,9 @@ class FileHandler:
     3. Send via Telegram
     """
 
-    TEMP_DIR = Path("~/.openclaw/workspace/temp").expanduser()
+    TEMP_DIR = Path(
+        os.environ.get("CIN_WORKSPACE") or "~/.openclaw/workspace"
+    ).expanduser() / "temp"
     GPD_HOST = "100.77.212.27"
 
     @classmethod
@@ -558,7 +561,7 @@ TELEGRAM_BOT_SCAFFOLD = """
 # 3. Run: python3 sub-agent-interface.py --serve
 #
 # The bot uses long-polling (no webhook needed).
-# For systemd service, see sub-agent.service below.
+# For systemd service, see sub-agent@.service (instance = user name).
 
 async def telegram_main():
     from telegram import Update

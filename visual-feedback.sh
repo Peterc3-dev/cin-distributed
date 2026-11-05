@@ -73,7 +73,7 @@ health_check() {
 # ─── Dashboard ────────────────────────────────────────────────
 
 dashboard() {
-    local log_path="$HOME/.openclaw/workspace/reports/routing-decisions.log"
+    local log_path="${CIN_WORKSPACE:-$HOME/.openclaw/workspace}/reports/routing-decisions.log"
 
     echo -e "\n  ${G}${BOLD}═══ BOOTSTRAP ROUTER ═══${RESET}"
     echo -e "  ${G}${DIM}$(date '+%Y-%m-%d %H:%M:%S')${RESET}"

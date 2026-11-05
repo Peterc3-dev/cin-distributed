@@ -105,9 +105,9 @@ export CLAW_TELEGRAM_TOKEN="your_token_here"
 python3 sub-agent-interface.py --test
 
 # 5. Deploy as service
-sudo cp sub-agent.service /etc/systemd/system/
+sudo cp sub-agent@.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now sub-agent.service
+sudo systemctl enable --now sub-agent@YOUR_USER
 ```
 
 ## Slash Commands (overrides only)

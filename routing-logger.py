@@ -32,8 +32,16 @@ def load_config() -> dict:
         return yaml.safe_load(f)
 
 
+DEFAULT_WORKSPACE = "~/.openclaw/workspace"
+
+
 def expand_path(p: str) -> Path:
-    return Path(os.path.expanduser(p))
+    """Expand ${CIN_WORKSPACE} (default ~/.openclaw/workspace), env vars and ~."""
+    from string import Template
+
+    workspace = os.environ.get("CIN_WORKSPACE") or DEFAULT_WORKSPACE
+    p = Template(p).safe_substitute(CIN_WORKSPACE=workspace)
+    return Path(os.path.expanduser(os.path.expandvars(p)))
 
 
 def parse_log_entry(line: str) -> dict:
