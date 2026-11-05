@@ -405,7 +405,7 @@ class IntentTranslator:
         (r"(restart|start|stop)\s+(\S+)\s*(service)?", "sudo systemctl {0} {1}"),
         (r"(check|show|what\s+is)\s+(\S+)\s+service\s*status", "systemctl status {1}"),
         (r"(show|check|list)\s*services", "systemctl list-units --type=service --state=running"),
-        (r"(show|check)\s*(the\s+)?logs?\s*(for\s+)?(\S+)", "journalctl -u {3} -n 50 --no-pager"),
+        (r"(show|check)\s*(the\s+)?logs?\s+(for\s+)?(\S+)", "journalctl -u {3} -n 50 --no-pager"),
 
         # Processes
         (r"(show|list|check)\s*(running\s+)?processes", "ps aux"),

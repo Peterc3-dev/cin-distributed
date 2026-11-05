@@ -152,3 +152,13 @@ def test_background_and_newline_chaining_blocked(validator, cmd):
     result = validator.validate(cmd)
     assert not result.allowed
     assert "chaining" in result.reason.lower()
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("show logs", None),
+    ("show logs for nginx", "journalctl -u nginx -n 50 --no-pager"),
+    ("check log sshd", "journalctl -u sshd -n 50 --no-pager"),
+])
+def test_translate_logs_does_not_split_word_into_unit(text, expected):
+    # "show logs" used to become "journalctl -u s" by backtracking "logs?".
+    assert sg.IntentTranslator.translate(text) == expected
