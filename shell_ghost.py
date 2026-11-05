@@ -434,7 +434,7 @@ class IntentTranslator:
         Attempt to translate natural language to a shell command.
         Returns None if no pattern matches.
         """
-        text = natural_text.lower().strip()
+        text = natural_text.strip()
 
         for pattern, template in cls.PATTERNS:
             match = re.search(pattern, text, re.IGNORECASE)

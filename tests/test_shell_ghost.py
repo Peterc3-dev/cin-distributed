@@ -128,3 +128,15 @@ def test_extract_command_strips_prefix():
 )
 def test_translate_running_queries(text, expected):
     assert sg.IntentTranslator.translate(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("restart MyService", "sudo systemctl restart MyService"),
+        ("Show Logs for NginX", "journalctl -u NginX -n 50 --no-pager"),
+        ("list files in /Data/MyDir", "ls -lah /Data/MyDir"),
+    ],
+)
+def test_translate_preserves_input_case(text, expected):
+    assert sg.IntentTranslator.translate(text) == expected
