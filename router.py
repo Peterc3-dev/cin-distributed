@@ -28,13 +28,31 @@ BOLD = "\033[1m"
 R = "\033[0m"
 
 
-def load_config() -> dict:
+class ConfigError(Exception):
+    """routing-config.yaml is missing, unparseable, or not a mapping."""
+
+
+def load_config(path: Optional[Path] = None) -> dict:
     # Imported lazily so that the pure complexity-analysis logic in this
     # module (ComplexityAnalyzer) can be imported without PyYAML installed.
     import yaml
 
-    with open(CONFIG_PATH) as f:
-        return yaml.safe_load(f)
+    path = Path(path) if path else CONFIG_PATH
+    try:
+        with open(path) as f:
+            data = yaml.safe_load(f)
+    except FileNotFoundError:
+        raise ConfigError(f"Config file not found: {path}") from None
+    except yaml.YAMLError as e:
+        raise ConfigError(f"Malformed YAML in {path}: {e}") from None
+    if not isinstance(data, dict):
+        raise ConfigError(
+            f"Config {path} must be a YAML mapping, got {type(data).__name__}"
+        )
+    for section in ("routing_rules", "nodes", "paths"):
+        if not isinstance(data.get(section), dict):
+            raise ConfigError(f"Config {path} is missing section '{section}'")
+    return data
 
 
 def expand_path(p: str) -> Path:
@@ -414,7 +432,11 @@ def main():
                         help="Output result as JSON")
 
     args = parser.parse_args()
-    router = BootstrapRouter()
+    try:
+        router = BootstrapRouter()
+    except ConfigError as e:
+        print(f"  \033[31m✗{R} {e}", file=sys.stderr)
+        sys.exit(2)
 
     # Health check mode
     if args.health:
