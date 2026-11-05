@@ -96,3 +96,26 @@ def test_analyze_returns_expected_keys(analyzer):
         "timestamp",
     }
     assert expected <= set(result)
+
+
+def test_cloud_feedback_adjustment_changes_cloud_score(analyzer):
+    _, base_conf = analyzer.keyword_score("hello there")
+    analyzer.feedback_db = {"adjustments": {"cloud": 5.0}}
+    tier, conf = analyzer.keyword_score("hello there")
+    assert tier == "cloud"
+    assert conf > base_conf
+
+
+def test_complex_local_feedback_adjustment_applies(analyzer):
+    analyzer.feedback_db = {"adjustments": {"complex-local": 5.0}}
+    tier, _ = analyzer.keyword_score("hello there")
+    assert tier == "complex-local"
+
+
+def test_sentence_count_ignores_trailing_punctuation(analyzer):
+    # Three sentences ending in punctuation must not be counted as four.
+    result = analyzer.analyze("Hi. Ok. Yes.")
+    assert result["tier"] == "simple"
+    # Four real sentences still escalate.
+    result = analyzer.analyze("Hi. Ok. Yes. Fine.")
+    assert result["tier"] == "complex-local"

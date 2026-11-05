@@ -117,3 +117,14 @@ def test_extract_command_strips_prefix():
     ghost = sg.ShellGhost(sg.DEFAULT_CONFIG)
     assert ghost.extract_command("ghost: df -h") == "df -h"
     assert ghost.extract_command("df -h") == "df -h"
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("which models are running", "ollama ps"),
+        ("what is running", "ps aux"),
+    ],
+)
+def test_translate_running_queries(text, expected):
+    assert sg.IntentTranslator.translate(text) == expected

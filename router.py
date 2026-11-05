@@ -88,8 +88,14 @@ class ComplexityAnalyzer:
                 scores["cloud_escalation"] += 2.0  # weighted highest
 
         # Apply learned adjustments
+        # Feedback keys use public tier names; map them to internal score keys.
+        feedback_key_map = {
+            "simple": "simple",
+            "complex-local": "complex_local",
+            "cloud": "cloud_escalation",
+        }
         for tier, adj in self.feedback_db.get("adjustments", {}).items():
-            key = tier.replace("-", "_")
+            key = feedback_key_map.get(tier, tier)
             if key in scores:
                 scores[key] += adj
 
@@ -127,7 +133,7 @@ class ComplexityAnalyzer:
             method = "token-length"
 
         # Check for multi-sentence / multi-step indicators
-        sentences = len(re.split(r'[.!?]+', query.strip()))
+        sentences = len([s for s in re.split(r'[.!?]+', query.strip()) if s.strip()])
         if sentences >= 4 and final_tier == "simple":
             final_tier = "complex-local"
             method = "sentence-complexity"

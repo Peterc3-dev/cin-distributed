@@ -406,6 +406,8 @@ class IntentTranslator:
 
         # Processes
         (r"(show|list|check)\s*(running\s+)?processes", "ps aux"),
+        # Specific model query must precede the generic "running" pattern.
+        (r"(which|what)\s+models?\s+(are\s+)?(running|loaded)", "ollama ps"),
         (r"(what|which|show).*running", "ps aux"),
 
         # Files
@@ -416,7 +418,6 @@ class IntentTranslator:
         # Ollama
         (r"ollama\s+status", "ollama ps"),
         (r"(list|show)\s+models?", "ollama list"),
-        (r"(which|what)\s+models?\s+(are\s+)?(running|loaded)", "ollama ps"),
 
         # Tailscale
         (r"(check|show)\s+tailscale", "tailscale status"),
