@@ -346,6 +346,11 @@ class SubAgentInterface:
         Returns formatted response string with status tag appended.
         """
         ctx = self.get_context(chat_id)
+        text = text or ""
+        if not text.strip() and file_path is None:
+            # Empty/whitespace-only messages (stickers, edits, captions-only
+            # updates) must not be sent to a model as a blank prompt.
+            return "Empty message. Send a question, or `/help` for commands."
         parsed = self.parser.parse(text)
 
         # ── Command handling ──

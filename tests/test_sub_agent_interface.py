@@ -98,3 +98,30 @@ def test_routing_context_history_is_capped():
     for _ in range(60):
         ctx.record("thinkcentre", "m", "simple", 0.0)
     assert len(ctx.history) == 50
+
+
+# ── Empty messages ──────────────────────────────────────────────────
+
+
+class _RouterSpy:
+    def __init__(self):
+        self.calls = []
+
+    def route(self, query, force_node=None):
+        self.calls.append(query)
+        return {"generation": None, "analysis": {}, "routed_to": "thinkcentre"}
+
+
+import asyncio  # noqa: E402
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize("text", ["", "   ", "\n\t", None])
+def test_empty_message_is_not_routed(text):
+    iface = sa.SubAgentInterface()
+    spy = _RouterSpy()
+    iface.router = spy
+    reply = asyncio.run(iface.handle_message(1, text))
+    assert spy.calls == []
+    assert "empty" in reply.lower()
